@@ -98,10 +98,12 @@ if __name__ == "__main__":
     dataset_folder = Path("/media/vlab/storage/data/YouTube-ASL")
     download_folder = dataset_folder / "downloads"
     download_folder.mkdir(parents=True, exist_ok=True)
+    result_count = 0
+    video_count = 50
+    i = 0
 
-    for i in range(20000):
-
-        video_count = 40
+    while result_count < len(youtube_ids) and i < 1000:
+        i = i + 1
 
         print(
             "\n\n**************************************************************************************************"
@@ -117,9 +119,28 @@ if __name__ == "__main__":
         except FileNotFoundError:
             download_results = {}
 
-        print(f"So far we have {len(download_results)} results")
+        successful_video_downloads = [
+            key
+            for key in download_results.keys()
+            if download_results[key]["video_downloaded_successfully"]
+        ]
+        print(
+            f"So far we have {len(download_results)} results, of which {len(successful_video_downloads)} were successful"
+        )
+        result_count = len(download_results)
 
-        # TODO: retry the ones with HTTPError, RemoteDisconnected, IncompleteRead
+        # retry the ones with HTTPError, RemoteDisconnected, IncompleteRead
+        error_ids = [
+            (yt_id, download_folder)
+            for yt_id in youtube_ids
+            if yt_id in download_results
+            and "http"
+            in str(
+                download_results[yt_id].get("video_download_error")
+            ).lower()  # get returns None if there's none
+        ]
+        random.shuffle(error_ids) # so we don't get stuck on the same ones every time.
+        print(f"{len(error_ids)} of the results had an http error of some kind and can be retried")
 
         # make tuples so we can call the one-argument function
         tuples_youtube_ids_to_process_with_download_folder = [
@@ -127,9 +148,18 @@ if __name__ == "__main__":
             for yt_id in youtube_ids
             if yt_id not in download_results
         ]
+
+
+        # error_ids.extend(tuples_youtube_ids_to_process_with_download_folder)
+        # tuples_youtube_ids_to_process_with_download_folder = error_ids
+        tuples_youtube_ids_to_process_with_download_folder.extend(error_ids) # put the retries at the end
+
+        # tuples_youtube_ids_to_process_with_download_folder = error_ids
+
         tuples_youtube_ids_to_process_with_download_folder = (
             tuples_youtube_ids_to_process_with_download_folder[:video_count]
         )
+
         first_id = tuples_youtube_ids_to_process_with_download_folder[0][0]
         yt_id_index = youtube_ids.index(first_id)
 
