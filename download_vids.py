@@ -78,16 +78,23 @@ if __name__ == "__main__":
     youtube_ids = []
     threads_count = 8
 
+    with open("youtube_asl_video_ids.txt") as yt_ids_f:
+            youtube_ids = yt_ids_f.read().splitlines()
+
+    dataset_folder = Path("/media/vlab/storage/data/YouTube-ASL")
+    download_folder = dataset_folder / "downloads"
+    download_folder.mkdir(parents=True, exist_ok=True)
+    
     for i in range(20000):
         
         video_count = 40
         
-        dataset_folder = Path("/media/vlab/storage/data/YouTube-ASL")
+        
 
         print("\n\n**************************************************************************************************")
-        print(f"Iteration {i}: downloading {video_count} videos to {dataset_folder}, using {threads_count} threads")
-        download_folder = dataset_folder / "downloads"
-        download_folder.mkdir(parents=True, exist_ok=True)
+        print(f"Batch {i}: downloading {video_count} videos to {dataset_folder}, using {threads_count} threads")
+        
+        
 
 
         save_results_path = dataset_folder / "download_results.json"
@@ -98,34 +105,37 @@ if __name__ == "__main__":
             download_results = {}
 
         print(f"So far we have {len(download_results)} results")
+        
 
 
-        with open("youtube_asl_video_ids.txt") as yt_ids_f:
-            youtube_ids = yt_ids_f.read().splitlines()
+    
 
 
-            #TODO: retry the ones with HTTPError, RemoteDisconnected, IncompleteRead
+        #TODO: retry the ones with HTTPError, RemoteDisconnected, IncompleteRead
 
-            # make tuples so we can call the one-argument function
-            tuples_youtube_ids_to_process_with_download_folder = [(yt_id,download_folder) for yt_id in youtube_ids if yt_id not in download_results]
-            tuples_youtube_ids_to_process_with_download_folder = tuples_youtube_ids_to_process_with_download_folder[:video_count]
-            first_id = tuples_youtube_ids_to_process_with_download_folder[0][0]
-            yt_id_index = youtube_ids.index(first_id)
+        # make tuples so we can call the one-argument function
+        tuples_youtube_ids_to_process_with_download_folder = [(yt_id,download_folder) for yt_id in youtube_ids if yt_id not in download_results]
+        tuples_youtube_ids_to_process_with_download_folder = tuples_youtube_ids_to_process_with_download_folder[:video_count]
+        first_id = tuples_youtube_ids_to_process_with_download_folder[0][0]
+        yt_id_index = youtube_ids.index(first_id)
 
-            print(f"first ID in batch is {first_id}, which is id {yt_id_index} of {len(youtube_ids)}")
-            start_time = timeit.default_timer()
-            
-            thread_results = ThreadPool(threads_count).imap_unordered(call_download, tuples_youtube_ids_to_process_with_download_folder)
-            
-            for yt_id, result in thread_results: 
-                download_results[yt_id] = result
-            # for yt_id_and_folder in tqdm(tuples_youtube_ids_to_process_with_download_folder):
-            #         # download_results[yt_id] = download_vid(yt_id=yt_id, 
-            #         #                                     download_folder=download_folder)
-            #         yt_id, result = call_download(yt_id_and_folder)
-            #         download_results[yt_id] = result
-            download_duration = timeit.default_timer() - start_time
-            print(f"Download took {download_duration:.2f} seconds")
+        print(f"first ID in batch is {first_id}, which is id {yt_id_index} of {len(youtube_ids)}")
+        print("---")
+        start_time = timeit.default_timer()
+        
+        thread_results = ThreadPool(threads_count).imap_unordered(call_download, tuples_youtube_ids_to_process_with_download_folder)
+        
+        for yt_id, result in thread_results: 
+            download_results[yt_id] = result
+        # for yt_id_and_folder in tqdm(tuples_youtube_ids_to_process_with_download_folder):
+        #         # download_results[yt_id] = download_vid(yt_id=yt_id, 
+        #         #                                     download_folder=download_folder)
+        #         yt_id, result = call_download(yt_id_and_folder)
+        #         download_results[yt_id] = result
+        download_duration = timeit.default_timer() - start_time
+
+        print("---")
+        print(f"Download took {download_duration:.2f} seconds")
 
         
                 
