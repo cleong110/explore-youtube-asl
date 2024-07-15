@@ -51,7 +51,7 @@ if __name__ == "__main__":
                 download_results[yt_id] = str(e)
     
             
-    print(json.dumps(download_results, indent=4))
+    # print(json.dumps(download_results, indent=4))
 
     save_results_path = dataset_folder / "download_results.json"
     with open(str(save_results_path), "w") as download_results_file:
