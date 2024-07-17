@@ -55,25 +55,18 @@ def download_vid(yt_id: str, download_folder: Path) -> dict:
         
         # caption tracks https://pytube.io/en/latest/user/captions.html
 
-        # print(f"downloading captions for YT ID = {yt_id}")
-        # print(f"captions will go to {video_download_folder}/{caption_file_stem}")
-
         captions = yt.captions
         results["captions"]= {}
-        # print("captions")
-        # print(captions)
-        # print("keys:")
-        # print(captions.keys())
+
         for caption in captions:
             # print(caption.name)
             print(f"\tDownloading caption language: {caption.name}")
             
-
+            # caption name can be literally anything, including slashes.
+            # but the caption code is unique, uses vssid internally I believe.
             caption_download_path = video_download_folder / f"{yt_id}_{caption.code}.json"
-            # print(caption.code)
             with open(
-                # video_download_folder / f"{caption.name} {caption.code}.json", "w"
-                caption_download_path, "w" # caption name can be literally anything, including slashes
+                caption_download_path, "w" 
             ) as cf:
                 json.dump(caption.json_captions, cf)
             
