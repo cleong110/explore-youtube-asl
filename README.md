@@ -9,6 +9,7 @@ Implemented:
 Ideas: 
 * go through the list and see which ones have audio tracks in English
 * download the audio tracks and run language ID, e.g. with https://huggingface.co/speechbrain/lang-id-voxlingua107-ecapa or Open Whisper: https://huggingface.co/espnet/owsm_v3
+* Load it into a `fiftyone` dataset, e.g. like in https://github.com/voxel51/fiftyone-examples/blob/master/examples/Video%20Labels.ipynb
 
 
 Related:
