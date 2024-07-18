@@ -1,6 +1,8 @@
 # explore-youtube-asl
 Messing around with [YouTube-ASL](https://github.com/google-research/google-research/tree/master/youtube_asl). 
 
+Colab notebook: https://colab.research.google.com/drive/1OBOyclRuMyjIIL15LKgRGPx3ArzpAv1F?usp=sharing
+
 Implemented:
 * randomly select and embed [Youtube-ASL](https://github.com/google-research/google-research/tree/master/youtube_asl) videos.
 * Display a grid of random videos
