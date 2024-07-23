@@ -32,7 +32,7 @@ python youtube-asl-viewer.py
 Download videos. This script creates a folder called "downloads" and puts videos, subtitles, and audio tracks into it. 
 
 ```bash
-python download_vids.py -h
+python download_vids.py --download_folder "downloads"
 ```
 
 ### Features:
