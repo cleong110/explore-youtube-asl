@@ -12,7 +12,7 @@ def homepage():
 
 
     htmlstring = """
-    <h1>Random Youtube-ASL Videos</h1>
+    <h1>Random <a href = "https://github.com/google-research/google-research/blob/master/youtube_asl/README.md">Youtube-ASL</a> Videos</h1>
     """
 
     if youtube_ids:
