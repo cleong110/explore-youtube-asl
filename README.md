@@ -8,7 +8,7 @@ Messing around with [YouTube-ASL](https://github.com/google-research/google-rese
 
 ## Quickstart
 
-1. Install requirements with [conda](https://docs.anaconda.com/miniconda/)
+Install requirements with [conda](https://docs.anaconda.com/miniconda/)
 
 ```bash
 conda create -n explore-youtube-asl pip
@@ -17,22 +17,22 @@ python -m pip --version # should show the pip inside your env
 pip install -r requirements.txt
 ```
 
-1. download the list of YouTube video IDs released by [YouTube-ASL](https://proceedings.neurips.cc/paper_files/paper/2023/hash/5c61452daca5f0c260e683b317d13a3f-Abstract-Datasets_and_Benchmarks.html)
+Download the list of YouTube video IDs released by [YouTube-ASL](https://proceedings.neurips.cc/paper_files/paper/2023/hash/5c61452daca5f0c260e683b317d13a3f-Abstract-Datasets_and_Benchmarks.html)
 
 ```bash
 python download_ids.py # should create a file called 'youtube_asl_video_ids.txt'
 ```
 
-1. Start up the random video viewer. Uses flask to host a simple web server, and embed a grid of YouTube videos
+Start up the random video viewer. Uses flask to host a simple web server, and embed a grid of YouTube videos
 
 ```bash
 python youtube-asl-viewer.py
 ```
 
-4. Download videos. This script creates a subfolder called "downloads" and puts videos, subtitles, and audio tracks into it. 
+Download videos. This script creates a folder called "downloads" and puts videos, subtitles, and audio tracks into it. 
 
 ```bash
-python download_vids.py
+python download_vids.py -h
 ```
 
 ### Features:
