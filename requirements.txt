@@ -2,5 +2,6 @@ Flask
 # pytube # July 17, 2024: fails on about 4k/11k videos with Bad Request
 pytubefix # actually works, July 17 2024
 tqdm
+requests
 # youtube-dl # doesn't work
 # google-cloud-storage # gotta set up creds. Too complicated, use .sh
