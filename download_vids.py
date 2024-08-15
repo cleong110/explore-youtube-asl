@@ -20,9 +20,11 @@ import argparse
 # Tried to switch innertube.py to https://github.com/JuanBindez/pytubefix/blob/c0c07b046d8b59574552404931f6ce3c6590137d/pytubefix/innertube.py
 # eventually just used pytubefix https://github.com/JuanBindez/pytubefix
 
+
 def call_download_with_one_arg(args_tuple: tuple) -> dict:
     yt_id, download_folder, download_audio, download_captions = args_tuple
-    return download_vid(yt_id=yt_id, download_folder=download_folder)
+    print(yt_id)
+    return download_vid(yt_id=yt_id, download_folder=download_folder, download_audio=download_audio, download_captions=download_captions)
 
 
 def download_vid(
@@ -86,10 +88,11 @@ def download_vid(
 
             captions = yt.captions
             results["captions"] = {}
-            
 
             for caption in captions:
-                results["captions"][caption.code] = {"name": caption.name,}
+                results["captions"][caption.code] = {
+                    "name": caption.name,
+                }
                 # print(caption.name)
                 #   print(f"\tDownloading {yt_id} caption: language: {caption.name}, code {caption.code}")
 
@@ -98,51 +101,59 @@ def download_vid(
                 caption_json_path = (
                     video_download_folder / f"{yt_id} ({caption.code}).json"
                 )
-                
 
-                try: 
+                try:
                     caption_json_path = Path(caption_json_path)
                     with open(caption_json_path, "w") as cf:
                         json.dump(caption.json_captions, cf)
-                    results["captions"][caption.code]["caption_json_path"] = str(caption_json_path)
+                    results["captions"][caption.code]["caption_json_path"] = str(
+                        caption_json_path
+                    )
                 except json.decoder.JSONDecodeError as e:
                     # got a few empty ones, e.g. Expecting value: line 1 column 1 (char 0)
                     # RL-KtzNXsiY had the error, but when viewing online the captions seem fine
-                    print(f"json.decoder.JSONDecodeError for {yt_id} downloading JSON caption: {e}")
-                    print(f"Also, the caption in question is {caption}, with code {caption.code}")
-                    
-                
-                
-                try: 
+                    print(
+                        f"json.decoder.JSONDecodeError for {yt_id} downloading JSON caption: {type(e)}: {e}"
+                    )
+                    print(
+                        f"Also, the caption in question is {caption}, with code {caption.code}"
+                    )
+                    results["captions"][caption.code]["caption_json_path"] = None
+                    results["captions"][caption.code]["caption_json_error"] = f"{type(e)}: {e}"
+
+                try:
                     caption_srt_path = caption.download(
-                    output_path=video_download_folder, title=f"{yt_id}.srt", srt=True
-                )
+                        output_path=video_download_folder,
+                        title=f"{yt_id}.srt",
+                        srt=True,
+                    )
                     caption_srt_path = Path(caption_srt_path)
-                    results["captions"][caption.code]["caption_srt_path"] = str(caption_srt_path)
+                    results["captions"][caption.code]["caption_srt_path"] = str(
+                        caption_srt_path
+                    )
 
                 except ParseError as e:
-                    # getting  no element found: line 1, column 0 
-                    print(f"xml.etree.ElementTree.ParseError for {yt_id} downloading SRT caption: {e}")
-                
-                #   print(f"")
-                #   print(f"\tDownloaded {yt_id} caption: language: {caption.name}, code {caption.code}\n\t\tJSON: {caption_json_path.name}, \n\t\tSRT: {caption_srt_path.name}")
-
-                
-
+                    # getting  no element found: line 1, column 0
+                    print(
+                        f"xml.etree.ElementTree.ParseError for {yt_id} downloading SRT caption: {type(e)}: {e}"
+                    )
+                    results["captions"][caption.code]["caption_srt_path"] = None
+                    results["captions"][caption.code]["caption_srt_error"] = f"{type(e)}: {e}"
         
-        
-
-        # caption_results = [f"\n\tCaption ({caption_code}), aka '{result['name']}' downloaded to \n\t\tSRT: {Path(result['caption_srt_path']).name}\n\t\t{Path(result['caption_json_path']).name}" for caption_code, result in results.get("captions").items()]
-        caption_results = [f"\n\tCaption downloaded:\t{caption_code:<10}\taka\t{result['name']:<15}" for caption_code, result in results.get("captions").items()]
-        results_str = "".join(caption_results)
+        results_str = ""
+        caption_results = results.get("captions")
+        if caption_results:
+            caption_results_strings = [
+                f"\n\tCaption downloaded:\t{caption_code:<10}\taka\t{result['name']:<15}"
+                for caption_code, result in results.get("captions").items()
+            ]
+            results_str = "".join(caption_results_strings)
 
         audio_results = results.get("audio")
         if audio_results:
             # results_str = f"{results_str}\n\tAudio downloaded to: {Path(audio_results['audio_file_path']).name}"
             results_str = f"{results_str}\n\tAudio downloaded"
 
-        
-            
         print(
             f"\n{yt_id}:\n\tTitle: '{yt.title}'",
             f"\n\tDownload folder: '{video_download_folder.absolute()}'",
@@ -185,6 +196,7 @@ def download_vids_multithreaded(
         (yt_id, download_folder, download_audio, download_captions)
         for yt_id in yt_ids_to_process
     ]
+    print(arg_tuples_list)
 
     thread_results = ThreadPool(threads_count).imap_unordered(
         call_download_with_one_arg, arg_tuples_list
@@ -232,8 +244,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch_video_count", type=int, default=default_thread_count * 2
     )
-    parser.add_argument("--download_captions", action="store_true")
-    parser.add_argument("--download_audio", action="store_true")
+    parser.add_argument("--download_captions", default=True, action="store_true")
+    parser.add_argument("--download_audio", default=True, action="store_true")
 
     args = parser.parse_args()
 
@@ -291,11 +303,6 @@ if __name__ == "__main__":
 
         print(f"{len(yt_ids_to_process)} IDs still unprocessed")
 
-        # error_ids.extend(tuples_youtube_ids_to_process_with_download_folder)
-        # tuples_youtube_ids_to_process_with_download_folder = error_ids
-        # tuples_youtube_ids_to_process_with_download_folder.extend(error_ids) # put the retries at the end
-
-        # tuples_youtube_ids_to_process_with_download_folder = error_ids
 
         yt_ids_to_process = yt_ids_to_process[:batch_video_count]
 
@@ -333,35 +340,46 @@ if __name__ == "__main__":
             )
 
 
-print("Retrying videos that had http errors")
-load_download_results(save_results_path)
+    print("Retrying videos that had http errors")
+    load_download_results(save_results_path)
 
-# retry the ones with HTTPError, http.client.RemoteDisconnected, http.client.IncompleteRead
-error_ids = [
-    (yt_id, download_folder)
-    for yt_id in youtube_ids
-    if yt_id in download_results
-    and "http"
-    in str(
-        download_results[yt_id].get("video_download_error")
-    ).lower()  # get returns None if there's none
-]
+    # retry the ones with HTTPError, http.client.RemoteDisconnected, http.client.IncompleteRead
+    error_ids = [
+        yt_id
+        for yt_id in youtube_ids
+        if yt_id in download_results
+        and "http"
+        in str(
+            download_results[yt_id].get("video_download_error")
+        ).lower()  # get returns None if there's none
+    ]
 
+    # TODO: retry videos with "detected as a bot"
 
-print(
-    f"{len(error_ids)} of the results had an http error of some kind and can be retried"
-)
-error_slices = list(itertools.batched(error_ids, batch_video_count))
-for error_slice in tqdm(error_slices, total=len(error_slices)):
-    first_id = error_slice[0][0]
-    yt_id_index = youtube_ids.index(first_id)
 
     print(
-        f"first ID in batch is {first_id}, which is id {yt_id_index} of {len(youtube_ids)}"
+        f"{len(error_ids)} of the results had an http error of some kind and can be retried"
     )
+    error_slices = list(itertools.batched(error_ids, batch_video_count))
+    for slice_of_yt_ids_with_error in tqdm(error_slices, total=len(error_slices)):
+        print(f"handling batch of length {batch_video_count} containing IDs {slice_of_yt_ids_with_error}")
+        first_id = slice_of_yt_ids_with_error[0]
+        yt_id_index = youtube_ids.index(first_id)
 
-    download_vids_multithreaded(threads_count, download_results, error_slice)
+        print(
+            f"Handling batch of length {len(slice_of_yt_ids_with_error)}, first ID in batch is {first_id}, which is id {yt_id_index} of {len(youtube_ids)}"
+        )
+        
 
-    print(f"saving results to {save_results_path}")
-    with open(str(save_results_path), "w") as download_results_file:
-        json.dump(download_results, download_results_file)
+        download_vids_multithreaded(
+            threads_count,
+            download_results,
+            slice_of_yt_ids_with_error,
+            download_folder,
+            download_audio=args.download_audio,
+            download_captions=args.download_captions,
+        )
+
+        print(f"saving results to {save_results_path}")
+        with open(str(save_results_path), "w") as download_results_file:
+            json.dump(download_results, download_results_file)
