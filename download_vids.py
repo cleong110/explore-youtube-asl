@@ -1,4 +1,4 @@
-from pytubefix import YouTube
+from pytubefix import YouTube, Caption
 from pytubefix.exceptions import AgeRestrictedError, VideoPrivate, VideoUnavailable
 from urllib.error import HTTPError, URLError
 from xml.etree.ElementTree import ParseError
@@ -13,6 +13,7 @@ import multiprocessing
 import timeit
 import itertools
 import argparse
+import time
 
 # https://github.com/pytube/pytube/issues/1954 stopped me.
 # had to manually edit /home/vlab/miniconda3/envs/explore-youtube-asl/lib/python3.12/site-packages/pytube/cipher.py
@@ -23,8 +24,157 @@ import argparse
 
 def call_download_with_one_arg(args_tuple: tuple) -> dict:
     yt_id, download_folder, download_audio, download_captions = args_tuple
-    print(yt_id)
-    return download_vid(yt_id=yt_id, download_folder=download_folder, download_audio=download_audio, download_captions=download_captions)
+    return download_vid(
+        yt_id=yt_id,
+        download_folder=download_folder,
+        download_audio=download_audio,
+        download_captions=download_captions,
+    )
+
+
+def download_vid_audio(
+    yt_client: YouTube,
+    video_download_folder: Path,
+    results_dict: dict,
+    redownload=False,
+):
+    ###############
+    # Audio
+    # https://pytubefix.readthedocs.io/en/latest/user/mp3.html
+    ys = yt_client.streams.get_audio_only()
+    desired_audio_file_path = Path(video_download_folder) / f"{yt_client.video_id}.mp3"
+    if desired_audio_file_path.is_file() and not redownload:
+        print(f"\t{yt_client.video_id}.mp3 already exists: skipping")
+        return
+    
+    if ys is None: 
+        results_dict["audio"] = "No audio streams"
+        return
+
+
+    audio_file_out_path = ys.download(
+        output_path=str(video_download_folder), filename=yt_client.video_id, mp3=True
+    )
+    audio_file_out_path = Path(audio_file_out_path)
+    results_dict["audio"] = {
+        "audio_file_path": str(audio_file_out_path.absolute()),
+        "audio_codec": ys.audio_codec,
+        "bitrate": ys.bitrate,
+        "filesize": ys.filesize,
+        "audio_track_name": ys.audio_track_name,
+    }
+
+
+def download_vid_captions_srt(
+    yt_client: YouTube,
+    caption: Caption,
+    video_download_folder: Path,
+    results_dict: dict,
+    redownload=False,
+):
+    yt_id = yt_client.video_id
+
+    desired_caption_srt_path = video_download_folder / f"{yt_id}_{caption.code}.srt"
+
+    if desired_caption_srt_path.is_file and not redownload:
+        print(f"\t{desired_caption_srt_path} already exists")
+        return
+
+    try:
+        caption_srt_path = caption.download(
+            output_path=video_download_folder,
+            title=f"{yt_id}_{caption.code}.srt",
+            srt=True,
+        )
+        caption_srt_path = Path(caption_srt_path)
+        results_dict["captions"][caption.code]["caption_srt_path"] = str(
+            caption_srt_path
+        )
+
+    except ParseError as e:
+        # getting  no element found: line 1, column 0
+        print(
+            f"xml.etree.ElementTree.ParseError for {yt_id} downloading SRT caption: {type(e)}: {e}"
+        )
+        results_dict["captions"][caption.code]["caption_srt_path"] = None
+        results_dict["captions"][caption.code][
+            "caption_srt_error"
+        ] = f"{type(e)}: {e}"    
+
+
+def download_vid_captions_json(
+    yt_client: YouTube,
+    caption: Caption,
+    video_download_folder: Path,
+    results_dict: dict,
+    redownload=False,
+):
+
+    yt_id = yt_client.video_id
+    # caption name can be literally anything, including slashes.
+    # but the caption code is unique, uses vssid internally I believe.
+    caption_json_path = video_download_folder / f"{yt_id}_({caption.code}).json"
+    if caption_json_path.is_file and not redownload:
+        print(f"\t{caption_json_path} already exists: skipping.")
+        return
+
+    try:
+        caption_json_path = Path(caption_json_path)
+        with open(caption_json_path, "w") as cf:
+            json.dump(caption.json_captions, cf)
+        results_dict["captions"][caption.code]["caption_json_path"] = str(
+            caption_json_path
+        )
+    except json.decoder.JSONDecodeError as e:
+        # got a few empty ones, e.g. Expecting value: line 1 column 1 (char 0)
+        # RL-KtzNXsiY had the error, but when viewing online the captions seem fine
+        print(
+            f"json.decoder.JSONDecodeError for {yt_id} downloading JSON caption: {type(e)}: {e}"
+        )
+        print(f"Also, the caption in question is {caption}, with code {caption.code}")
+        results_dict["captions"][caption.code]["caption_json_path"] = None
+        results_dict["captions"][caption.code]["caption_json_error"] = f"{type(e)}: {e}"
+
+
+def download_vid_captions(
+    yt_client: YouTube,
+    video_download_folder: Path,
+    results_dict: dict,
+    redownload=False,
+    download_srt=True,
+    download_json=True,
+):
+    ##################
+    # captions
+    # caption tracks https://pytube.io/en/latest/user/captions.html
+
+    yt_id = yt_client.video_id
+
+    captions = yt_client.captions
+    results_dict["captions"] = {}
+
+    for caption in captions:
+        results_dict["captions"][caption.code] = {
+            "name": caption.name,
+        }
+
+        if download_json:
+            download_vid_captions_json(
+                yt_client=yt_client,
+                caption=caption,
+                video_download_folder=video_download_folder,
+                results_dict=results_dict,
+                redownload=redownload,
+            )
+        if download_srt:
+            download_vid_captions_srt(
+                yt_client=yt_client,
+                caption=caption,
+                video_download_folder=video_download_folder,
+                results_dict=results_dict,
+                redownload=redownload,
+            )
+
 
 
 def download_vid(
@@ -34,13 +184,11 @@ def download_vid(
     # download, or add error info
     try:
         video_download_folder = download_folder / yt_id
-        # filename = f"{yt_id}.mp4"
 
-        yt = YouTube(f"http://youtube.com/watch?v={yt_id}")
+        yt_client = YouTube(f"http://youtube.com/watch?v={yt_id}")
 
-        # print(yt.streams)
         hd = (
-            yt.streams.filter(progressive=True, file_extension="mp4")
+            yt_client.streams.filter(progressive=True, file_extension="mp4")
             .order_by("resolution")
             .desc()
             .first()
@@ -64,82 +212,22 @@ def download_vid(
         }
 
         if download_audio:
-            ###############
-            # Audio
-            # https://pytubefix.readthedocs.io/en/latest/user/mp3.html
-            ys = yt.streams.get_audio_only()
-            audio_file_path = ys.download(
-                output_path=str(video_download_folder), filename=yt_id, mp3=True
+            download_vid_audio(
+                yt_client,
+                video_download_folder=video_download_folder,
+                results_dict=results,
             )
-            audio_file_path = Path(audio_file_path)
-            #   print(f"\tDownloaded {yt_id} audio: {audio_file_path.name}")
-            results["audio"] = {
-                "audio_file_path": str(audio_file_path.absolute()),
-                "audio_codec": ys.audio_codec,
-                "bitrate": ys.bitrate,
-                "filesize": ys.filesize,
-                "audio_track_name": ys.audio_track_name,
-            }
 
         if download_captions:
-            ##################
-            # captions
-            # caption tracks https://pytube.io/en/latest/user/captions.html
+            download_vid_captions(
+                yt_client=yt_client,
+                video_download_folder=video_download_folder,
+                results_dict=results,
+                redownload=False,
+                download_srt=True,
+                download_json=True,
+            )
 
-            captions = yt.captions
-            results["captions"] = {}
-
-            for caption in captions:
-                results["captions"][caption.code] = {
-                    "name": caption.name,
-                }
-                # print(caption.name)
-                #   print(f"\tDownloading {yt_id} caption: language: {caption.name}, code {caption.code}")
-
-                # caption name can be literally anything, including slashes.
-                # but the caption code is unique, uses vssid internally I believe.
-                caption_json_path = (
-                    video_download_folder / f"{yt_id} ({caption.code}).json"
-                )
-
-                try:
-                    caption_json_path = Path(caption_json_path)
-                    with open(caption_json_path, "w") as cf:
-                        json.dump(caption.json_captions, cf)
-                    results["captions"][caption.code]["caption_json_path"] = str(
-                        caption_json_path
-                    )
-                except json.decoder.JSONDecodeError as e:
-                    # got a few empty ones, e.g. Expecting value: line 1 column 1 (char 0)
-                    # RL-KtzNXsiY had the error, but when viewing online the captions seem fine
-                    print(
-                        f"json.decoder.JSONDecodeError for {yt_id} downloading JSON caption: {type(e)}: {e}"
-                    )
-                    print(
-                        f"Also, the caption in question is {caption}, with code {caption.code}"
-                    )
-                    results["captions"][caption.code]["caption_json_path"] = None
-                    results["captions"][caption.code]["caption_json_error"] = f"{type(e)}: {e}"
-
-                try:
-                    caption_srt_path = caption.download(
-                        output_path=video_download_folder,
-                        title=f"{yt_id}.srt",
-                        srt=True,
-                    )
-                    caption_srt_path = Path(caption_srt_path)
-                    results["captions"][caption.code]["caption_srt_path"] = str(
-                        caption_srt_path
-                    )
-
-                except ParseError as e:
-                    # getting  no element found: line 1, column 0
-                    print(
-                        f"xml.etree.ElementTree.ParseError for {yt_id} downloading SRT caption: {type(e)}: {e}"
-                    )
-                    results["captions"][caption.code]["caption_srt_path"] = None
-                    results["captions"][caption.code]["caption_srt_error"] = f"{type(e)}: {e}"
-        
         results_str = ""
         caption_results = results.get("captions")
         if caption_results:
@@ -155,7 +243,7 @@ def download_vid(
             results_str = f"{results_str}\n\tAudio downloaded"
 
         print(
-            f"\n{yt_id}:\n\tTitle: '{yt.title}'",
+            f"\n{yt_id}:\n\tTitle: '{yt_client.title}'",
             f"\n\tDownload folder: '{video_download_folder.absolute()}'",
             f"\n\tVideo downloaded to {vid_out_path.name}",
             f"\n\t\tSize: {hd.filesize_mb} mb",
@@ -172,7 +260,7 @@ def download_vid(
         RemoteDisconnected,
         URLError,
     ) as e:
-        print(f"{yt_id}:\t{str(e)}")
+        print(f"{yt_id}:\t{type(e)}:{str(e)}")
         return yt_id, {
             "video_downloaded_successfully": False,
             "video_file_path": None,
@@ -196,7 +284,6 @@ def download_vids_multithreaded(
         (yt_id, download_folder, download_audio, download_captions)
         for yt_id in yt_ids_to_process
     ]
-    print(arg_tuples_list)
 
     thread_results = ThreadPool(threads_count).imap_unordered(
         call_download_with_one_arg, arg_tuples_list
@@ -303,7 +390,6 @@ if __name__ == "__main__":
 
         print(f"{len(yt_ids_to_process)} IDs still unprocessed")
 
-
         yt_ids_to_process = yt_ids_to_process[:batch_video_count]
 
         if yt_ids_to_process:
@@ -339,12 +425,12 @@ if __name__ == "__main__":
                 "**************************************************************************************************"
             )
 
-
     print("Retrying videos that had http errors")
     load_download_results(save_results_path)
 
     # retry the ones with HTTPError, http.client.RemoteDisconnected, http.client.IncompleteRead
-    error_ids = [
+    error_ids = []
+    http_error_ids = [
         yt_id
         for yt_id in youtube_ids
         if yt_id in download_results
@@ -353,23 +439,41 @@ if __name__ == "__main__":
             download_results[yt_id].get("video_download_error")
         ).lower()  # get returns None if there's none
     ]
-
-    # TODO: retry videos with "detected as a bot"
-
-
     print(
         f"{len(error_ids)} of the results had an http error of some kind and can be retried"
     )
+    error_ids.extend(http_error_ids)
+
+    bot_detection_ids =[
+        yt_id
+        for yt_id in youtube_ids
+        if yt_id in download_results
+        and "detected as a bot"
+        in str(
+            download_results[yt_id].get("video_download_error")
+        ).lower()  # get returns None if there's none
+    ]
+    print(f"{len(error_ids)} of the results were detected as a bot and can be retried")
+
+    error_ids.extend(bot_detection_ids)
+
+    
     error_slices = list(itertools.batched(error_ids, batch_video_count))
     for slice_of_yt_ids_with_error in tqdm(error_slices, total=len(error_slices)):
-        print(f"handling batch of length {batch_video_count} containing IDs {slice_of_yt_ids_with_error}")
+        sleep_time = random.randint(60,120)
+        print(f"sleeping for {sleep_time} seconds...")
+        time.sleep(sleep_time)
+        
+        
+        print(
+            f"handling batch of length {batch_video_count} containing IDs {slice_of_yt_ids_with_error}"
+        )
         first_id = slice_of_yt_ids_with_error[0]
         yt_id_index = youtube_ids.index(first_id)
 
         print(
             f"Handling batch of length {len(slice_of_yt_ids_with_error)}, first ID in batch is {first_id}, which is id {yt_id_index} of {len(youtube_ids)}"
         )
-        
 
         download_vids_multithreaded(
             threads_count,
