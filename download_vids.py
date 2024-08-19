@@ -1,6 +1,7 @@
 from pytubefix import YouTube
 from pytubefix.exceptions import AgeRestrictedError, VideoPrivate, VideoUnavailable
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+from xml.etree.ElementTree import ParseError
 from http.client import IncompleteRead, RemoteDisconnected
 import random
 from tqdm import tqdm
@@ -18,7 +19,6 @@ import argparse
 # https://github.com/pytube/pytube/issues/1894#issue-2180600881 as well,
 # Tried to switch innertube.py to https://github.com/JuanBindez/pytubefix/blob/c0c07b046d8b59574552404931f6ce3c6590137d/pytubefix/innertube.py
 # eventually just used pytubefix https://github.com/JuanBindez/pytubefix
-
 
 def call_download_with_one_arg(args_tuple: tuple) -> dict:
     yt_id, download_folder, download_audio, download_captions = args_tuple
@@ -51,7 +51,7 @@ def download_vid(
 
         results = {
             "video_downloaded_successfully": True,
-            "video_file_path": vid_out_path,
+            "video_file_path": str(vid_out_path.absolute()),
             "title": hd.title,
             "filesize_bytes": hd.filesize,
             "includes_audio_track": hd.includes_audio_track,
@@ -86,8 +86,10 @@ def download_vid(
 
             captions = yt.captions
             results["captions"] = {}
+            
 
             for caption in captions:
+                results["captions"][caption.code] = {"name": caption.name,}
                 # print(caption.name)
                 #   print(f"\tDownloading {yt_id} caption: language: {caption.name}, code {caption.code}")
 
@@ -96,22 +98,36 @@ def download_vid(
                 caption_json_path = (
                     video_download_folder / f"{yt_id} ({caption.code}).json"
                 )
-                caption_json_path = Path(caption_json_path)
-                with open(caption_json_path, "w") as cf:
-                    json.dump(caption.json_captions, cf)
+                
 
-                caption_srt_path = caption.download(
+                try: 
+                    caption_json_path = Path(caption_json_path)
+                    with open(caption_json_path, "w") as cf:
+                        json.dump(caption.json_captions, cf)
+                    results["captions"][caption.code]["caption_json_path"] = str(caption_json_path)
+                except json.decoder.JSONDecodeError as e:
+                    # got a few empty ones, e.g. Expecting value: line 1 column 1 (char 0)
+                    # RL-KtzNXsiY had the error, but when viewing online the captions seem fine
+                    print(f"json.decoder.JSONDecodeError for {yt_id} downloading JSON caption: {e}")
+                    print(f"Also, the caption in question is {caption}, with code {caption.code}")
+                    
+                
+                
+                try: 
+                    caption_srt_path = caption.download(
                     output_path=video_download_folder, title=f"{yt_id}.srt", srt=True
                 )
-                caption_srt_path = Path(caption_srt_path)
+                    caption_srt_path = Path(caption_srt_path)
+                    results["captions"][caption.code]["caption_srt_path"] = str(caption_srt_path)
+
+                except ParseError as e:
+                    # getting  no element found: line 1, column 0 
+                    print(f"xml.etree.ElementTree.ParseError for {yt_id} downloading SRT caption: {e}")
+                
                 #   print(f"")
                 #   print(f"\tDownloaded {yt_id} caption: language: {caption.name}, code {caption.code}\n\t\tJSON: {caption_json_path.name}, \n\t\tSRT: {caption_srt_path.name}")
 
-                results["captions"][caption.code] = {
-                    "caption_json_path": str(caption_json_path),
-                    "caption_srt_path": str(caption_srt_path),
-                    "name": caption.name,
-                }
+                
 
         
         
@@ -143,6 +159,7 @@ def download_vid(
         VideoUnavailable,
         IncompleteRead,
         RemoteDisconnected,
+        URLError,
     ) as e:
         print(f"{yt_id}:\t{str(e)}")
         return yt_id, {
