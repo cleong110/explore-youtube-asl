@@ -33,7 +33,7 @@ python youtube-asl-viewer.py
 
 **Generate a .html you can just open in a browser**
 
-Do you want to just hardcode, say, 250 videos into a .html file, and then send that to someone who doesn't have Python or Flask, and then they can just open it in their browser? You're in luck! You can! Just run the following, and it will take `youtube_asl_video_ids.txt`, pull out the number of IDs you specified, and generate a .html with them hardcoded inside. Then when someone clicks on it, it'll open in their browser and just display 6 our of those 250. 
+Do you want to just hardcode, say, 250 videos into a .html file, and then send that to someone who doesn't have Python or Flask, and then they can just open it in their browser? You're in luck! You can! Just run the following, and it will take `youtube_asl_video_ids.txt`, pull out the number of IDs you specified, and generate a .html with them hardcoded inside. Then when someone clicks on it, it'll open in their browser and just display 6 our of those 250.
 
 ```python
 
@@ -43,6 +43,8 @@ python create_static_html.py 250
 # same thing, with 11000 videos (youtube_asl_video_ids.txt only has 11,096). Resulting html is 155 kb or so!
 python create_static_html.py 11000
 ```
+
+The resulting file is "yt_asl_static_demo.html"
 
 Download videos. This script creates a folder called "downloads" and puts videos, subtitles, and audio tracks into it. 
 
