@@ -24,6 +24,7 @@ python download_ids.py # should create a file called 'youtube_asl_video_ids.txt'
 ```
 
 **Random Video Viewer with a server**
+
 Start up the random video viewer. Uses flask to host a simple web server, and embed a grid of YouTube videos
 
 ```bash
@@ -39,7 +40,7 @@ Do you want to just hardcode, say, 250 videos into a .html file, and then send t
 # make HTML with 250 hardcoded ids, of which a few are displayed at random every time you reload the page
 python create_static_html.py 250
 
-# same thing, with 11000 videos (youtube_asl_video_ids.txt only has 11,096)
+# same thing, with 11000 videos (youtube_asl_video_ids.txt only has 11,096). Resulting html is 155 kb or so!
 python create_static_html.py 11000
 ```
 
