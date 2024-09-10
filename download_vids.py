@@ -440,7 +440,7 @@ if __name__ == "__main__":
         ).lower()  # get returns None if there's none
     ]
     print(
-        f"{len(error_ids)} of the results had an http error of some kind and can be retried"
+        f"{len(http_error_ids)} of the results had an http error of some kind and can be retried"
     )
     error_ids.extend(http_error_ids)
 
@@ -453,16 +453,16 @@ if __name__ == "__main__":
             download_results[yt_id].get("video_download_error")
         ).lower()  # get returns None if there's none
     ]
-    print(f"{len(error_ids)} of the results were detected as a bot and can be retried")
+    print(f"{len(bot_detection_ids)} of the results were detected as a bot and can be retried")
 
     error_ids.extend(bot_detection_ids)
 
     
     error_slices = list(itertools.batched(error_ids, batch_video_count))
     for slice_of_yt_ids_with_error in tqdm(error_slices, total=len(error_slices)):
-        sleep_time = random.randint(60,120)
-        print(f"sleeping for {sleep_time} seconds...")
-        time.sleep(sleep_time)
+        #sleep_time = random.randint(60,120)
+        sleep_time = random.randint(6,20)
+        
         
         
         print(
@@ -487,3 +487,6 @@ if __name__ == "__main__":
         print(f"saving results to {save_results_path}")
         with open(str(save_results_path), "w") as download_results_file:
             json.dump(download_results, download_results_file)
+        
+        print(f"sleeping for {sleep_time} seconds...")
+        time.sleep(sleep_time)
