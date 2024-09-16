@@ -23,12 +23,13 @@ import time
 
 
 def call_download_with_one_arg(args_tuple: tuple) -> dict:
-    yt_id, download_folder, download_audio, download_captions = args_tuple
+    yt_id, download_folder, download_audio, download_captions, yt_client = args_tuple
     return download_vid(
         yt_id=yt_id,
         download_folder=download_folder,
         download_audio=download_audio,
         download_captions=download_captions,
+        yt_client=None,
     )
 
 
@@ -178,14 +179,14 @@ def download_vid_captions(
 
 
 def download_vid(
-    yt_id: str, download_folder: Path, download_audio=True, download_captions=True
-) -> dict:
+    yt_id: str, download_folder: Path, download_audio=True, download_captions=True,
+yt_client=None) -> dict:
 
     # download, or add error info
     try:
         video_download_folder = download_folder / yt_id
-
-        yt_client = YouTube(f"http://youtube.com/watch?v={yt_id}")
+        if yt_client is None:
+            yt_client = YouTube(f"http://youtube.com/watch?v={yt_id}", use_po_token=True)
 
         hd = (
             yt_client.streams.filter(progressive=True, file_extension="mp4")
@@ -275,13 +276,14 @@ def download_vids_multithreaded(
     download_folder,
     download_audio=True,
     download_captions=True,
+    yt_client=None,
 ):
     print("---")
     start_time = timeit.default_timer()
 
     # get it into the right format to call multithreaded.
     arg_tuples_list = [
-        (yt_id, download_folder, download_audio, download_captions)
+        (yt_id, download_folder, download_audio, download_captions,yt_client)
         for yt_id in yt_ids_to_process
     ]
 
@@ -333,8 +335,21 @@ if __name__ == "__main__":
     )
     parser.add_argument("--download_captions", default=True, action="store_true")
     parser.add_argument("--download_audio", default=True, action="store_true")
+    parser.add_argument("--use_po_token", default=True, action="store_true")
+
+
+
 
     args = parser.parse_args()
+
+    if args.use_po_token:
+            yt_client = YouTube(f"http://youtube.com/watch?v=dQw4w9WgXcQ", use_po_token=True)
+            print(f"OK, to get po_tokens to work, as in https://github.com/JuanBindez/pytubefix/blob/a5a71ef7be4398e9e7549c3f8ce06f1e4442e0da/docs/user/po_token.rst, go to https://colab.research.google.com/drive/190BC9tEc0wTtCsfSbWHY-lT6amjSwFyG?usp=sharing and run it.")
+            input("When you're done getting the visitorData and poToken, press Enter")
+            download_vid("dQw4w9WgXcQ", download_folder=Path("/tmp/"))
+            print("OK, PyTubeFix should remember the po_token thing now, when making future connections they might work more reliably")
+            input("ready?")
+
 
     youtube_ids = []
 
@@ -410,6 +425,7 @@ if __name__ == "__main__":
                 download_folder,
                 download_audio=args.download_audio,
                 download_captions=args.download_captions,
+                yt_client=yt_client,
             )
 
             if first_id in download_results:
@@ -460,8 +476,8 @@ if __name__ == "__main__":
     
     error_slices = list(itertools.batched(error_ids, batch_video_count))
     for slice_of_yt_ids_with_error in tqdm(error_slices, total=len(error_slices)):
-        #sleep_time = random.randint(60,120)
-        sleep_time = random.randint(6,20)
+        sleep_time = random.randint(60,180)
+        #sleep_time = random.randint(60,20)
         
         
         
@@ -482,6 +498,7 @@ if __name__ == "__main__":
             download_folder,
             download_audio=args.download_audio,
             download_captions=args.download_captions,
+            yt_client=yt_client,
         )
 
         print(f"saving results to {save_results_path}")
