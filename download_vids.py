@@ -1,4 +1,5 @@
 from pytubefix import YouTube, Caption
+from pytubefix.innertube import InnerTube
 from pytubefix.exceptions import AgeRestrictedError, VideoPrivate, VideoUnavailable
 from urllib.error import HTTPError, URLError
 from xml.etree.ElementTree import ParseError
@@ -180,13 +181,20 @@ def download_vid_captions(
 
 def download_vid(
     yt_id: str, download_folder: Path, download_audio=True, download_captions=True,
-yt_client=None) -> dict:
+yt_client=None, get_new_token=False) -> dict:
 
     # download, or add error info
     try:
         video_download_folder = download_folder / yt_id
-        if yt_client is None:
+        if get_new_token:
             yt_client = YouTube(f"http://youtube.com/watch?v={yt_id}", use_po_token=True)
+            yt_client_innertube = InnerTube(yt_client.client)
+            yt_client_innertube.fetch_po_token()
+            print(f"token_file is now {yt_client_innertube.token_file}")
+            print(f"access_visitorData is now {yt_client_innertube.access_visitorData}")
+            print(f"access_po_token is now {yt_client_innertube.access_po_token}")
+        else:
+            yt_client = YouTube(f"http://youtube.com/watch?v={yt_id}")
 
         hd = (
             yt_client.streams.filter(progressive=True, file_extension="mp4")
@@ -335,7 +343,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--download_captions", default=True, action="store_true")
     parser.add_argument("--download_audio", default=True, action="store_true")
-    parser.add_argument("--use_po_token", default=True, action="store_true")
+    parser.add_argument("--use_po_token", action="store_true")
 
 
 
@@ -346,10 +354,11 @@ if __name__ == "__main__":
             yt_client = YouTube(f"http://youtube.com/watch?v=dQw4w9WgXcQ", use_po_token=True)
             print(f"OK, to get po_tokens to work, as in https://github.com/JuanBindez/pytubefix/blob/a5a71ef7be4398e9e7549c3f8ce06f1e4442e0da/docs/user/po_token.rst, go to https://colab.research.google.com/drive/190BC9tEc0wTtCsfSbWHY-lT6amjSwFyG?usp=sharing and run it.")
             input("When you're done getting the visitorData and poToken, press Enter")
-            download_vid("dQw4w9WgXcQ", download_folder=Path("/tmp/"))
+            download_vid("dQw4w9WgXcQ", download_folder=Path("/tmp/"), get_new_token=True)
             print("OK, PyTubeFix should remember the po_token thing now, when making future connections they might work more reliably")
             input("ready?")
-
+    else:
+        yt_client=None
 
     youtube_ids = []
 
